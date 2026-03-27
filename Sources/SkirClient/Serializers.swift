@@ -40,10 +40,9 @@ public enum Serializers {
 
   public static func array<Element>(
     _ item: Serializer<Element>,
-    keyExtractor: String = ""
   ) -> Serializer<[Element]> {
     Serializer<[Element]>(
-      adapter: ArrayAdapter(item: item, keyExtractor: keyExtractor)
+      adapter: ArrayAdapter(item: item)
     )
   }
 
@@ -864,7 +863,6 @@ struct ArrayAdapter<Element>: TypeAdapter {
   typealias T = [Element]
 
   let item: Serializer<Element>
-  let keyExtractor: String
 
   func isDefault(_ input: [Element]) -> Bool { input.isEmpty }
 
@@ -938,7 +936,7 @@ struct ArrayAdapter<Element>: TypeAdapter {
   }
 
   func typeDescriptor() -> Reflection.TypeDescriptor {
-    .array(Reflection.ArrayDescriptor(itemType: item.typeDescriptor(), keyExtractor: keyExtractor))
+    .array(Reflection.ArrayDescriptor(itemType: item.typeDescriptor(), keyExtractor: ""))
   }
 }
 
