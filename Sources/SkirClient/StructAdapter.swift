@@ -28,7 +28,7 @@ extension Internal {
     func number() -> Int32 { fieldNumber }
     func name() -> String { fieldName }
     func doc() -> String { fieldDoc }
-    func fieldTypeDescriptor() -> Reflection.TypeDescriptor { serializer.typeDescriptor() }
+    func fieldTypeDescriptor() -> Reflection.TypeDescriptor { serializer.typeDescriptor }
 
     func isFieldDefault(_ input: Frozen) -> Bool {
       serializer._isDefault(getter(input))

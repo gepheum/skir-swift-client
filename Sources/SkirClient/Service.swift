@@ -172,8 +172,8 @@ public final class Service<Meta> {
         name: method.name,
         number: method.number,
         doc: method.doc,
-        requestTypeDescriptorJson: reqSerializer.typeDescriptor().asJson(),
-        responseTypeDescriptorJson: respSerializer.typeDescriptor().asJson(),
+        requestTypeDescriptorJson: reqSerializer.typeDescriptor.asJson(),
+        responseTypeDescriptorJson: respSerializer.typeDescriptor.asJson(),
         invoke: { requestJson, keepUnrecognized, readable, meta in
           let req: Request
           do {

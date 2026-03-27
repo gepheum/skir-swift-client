@@ -190,7 +190,7 @@ extension Internal {
           Reflection.EnumWrapperVariant(
             name: name,
             number: number,
-            variantType: serializer.typeDescriptor(),
+            variantType: serializer.typeDescriptor,
             doc: doc
           )))
     }

@@ -77,8 +77,8 @@ public final class Serializer<T> {
   }
 
   /// Returns a TypeDescriptor that describes the schema of `T`.
-  public func typeDescriptor() -> Reflection.TypeDescriptor {
-    return adapter.typeDescriptor()
+  public var typeDescriptor: Reflection.TypeDescriptor {
+    adapter.typeDescriptor()
   }
 
   func _isDefault(_ value: T) -> Bool {

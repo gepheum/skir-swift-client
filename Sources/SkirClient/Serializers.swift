@@ -2,41 +2,23 @@ import CoreFoundation
 import Foundation
 
 public enum Serializers {
-  public static func bool() -> Serializer<Bool> {
-    Serializer<Bool>(adapter: BoolAdapter())
-  }
+  public static let bool = Serializer<Bool>(adapter: BoolAdapter())
 
-  public static func int32() -> Serializer<Int32> {
-    Serializer<Int32>(adapter: Int32Adapter())
-  }
+  public static let int32 = Serializer<Int32>(adapter: Int32Adapter())
 
-  public static func int64() -> Serializer<Int64> {
-    Serializer<Int64>(adapter: Int64Adapter())
-  }
+  public static let int64 = Serializer<Int64>(adapter: Int64Adapter())
 
-  public static func hash64() -> Serializer<UInt64> {
-    Serializer<UInt64>(adapter: Hash64Adapter())
-  }
+  public static let hash64 = Serializer<UInt64>(adapter: Hash64Adapter())
 
-  public static func float32() -> Serializer<Float> {
-    Serializer<Float>(adapter: Float32Adapter())
-  }
+  public static let float32 = Serializer<Float>(adapter: Float32Adapter())
 
-  public static func float64() -> Serializer<Double> {
-    Serializer<Double>(adapter: Float64Adapter())
-  }
+  public static let float64 = Serializer<Double>(adapter: Float64Adapter())
 
-  public static func timestamp() -> Serializer<Foundation.Date> {
-    Serializer<Foundation.Date>(adapter: TimestampAdapter())
-  }
+  public static let timestamp = Serializer<Foundation.Date>(adapter: TimestampAdapter())
 
-  public static func string() -> Serializer<String> {
-    Serializer<String>(adapter: StringAdapter())
-  }
+  public static let string = Serializer<String>(adapter: StringAdapter())
 
-  public static func bytes() -> Serializer<Foundation.Data> {
-    Serializer<Foundation.Data>(adapter: BytesAdapter())
-  }
+  public static let bytes = Serializer<Foundation.Data>(adapter: BytesAdapter())
 
   public static func array<Element>(
     _ item: Serializer<Element>,
@@ -936,7 +918,7 @@ struct ArrayAdapter<Element>: TypeAdapter {
   }
 
   func typeDescriptor() -> Reflection.TypeDescriptor {
-    .array(Reflection.ArrayDescriptor(itemType: item.typeDescriptor(), keyExtractor: ""))
+    .array(Reflection.ArrayDescriptor(itemType: item.typeDescriptor, keyExtractor: ""))
   }
 }
 
@@ -1021,7 +1003,7 @@ struct KeyedArrayAdapter<Spec: KeyedArraySpec>: TypeAdapter {
 
   func typeDescriptor() -> Reflection.TypeDescriptor {
     .array(
-      Reflection.ArrayDescriptor(itemType: item.typeDescriptor(), keyExtractor: Spec.keyExtractor())
+      Reflection.ArrayDescriptor(itemType: item.typeDescriptor, keyExtractor: Spec.keyExtractor())
     )
   }
 }
@@ -1065,7 +1047,7 @@ struct OptionalAdapter<Wrapped>: TypeAdapter {
   }
 
   func typeDescriptor() -> Reflection.TypeDescriptor {
-    .optional(other.typeDescriptor())
+    .optional(other.typeDescriptor)
   }
 }
 
@@ -1118,7 +1100,7 @@ struct RecursiveAdapter<Wrapped>: TypeAdapter {
   }
 
   func typeDescriptor() -> Reflection.TypeDescriptor {
-    other.typeDescriptor()
+    other.typeDescriptor
   }
 }
 
@@ -1166,6 +1148,6 @@ struct OptionBoxAdapter<Wrapped>: TypeAdapter {
   }
 
   func typeDescriptor() -> Reflection.TypeDescriptor {
-    .optional(other.typeDescriptor())
+    .optional(other.typeDescriptor)
   }
 }
