@@ -1,6 +1,6 @@
 import Foundation
 
-/// Sends RPCs to a Skir service.
+/// Sends RPCs to a SkirRPC service.
 ///
 /// ## Example
 ///
