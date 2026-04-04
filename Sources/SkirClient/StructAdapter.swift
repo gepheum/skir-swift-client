@@ -21,34 +21,34 @@ extension Internal {
     let fieldNumber: Int32
     let fieldName: String
     let fieldDoc: String
-    let serializer: Serializer<V>
+    let adapter: any TypeAdapter<V>
     let getter: (Frozen) -> V
     let setter: (Mutable, V) -> Void
 
     func number() -> Int32 { fieldNumber }
     func name() -> String { fieldName }
     func doc() -> String { fieldDoc }
-    func fieldTypeDescriptor() -> Reflection.TypeDescriptor { serializer.typeDescriptor }
+    func fieldTypeDescriptor() -> Reflection.TypeDescriptor { adapter.typeDescriptor() }
 
     func isFieldDefault(_ input: Frozen) -> Bool {
-      serializer._isDefault(getter(input))
+      adapter.isDefault(getter(input))
     }
 
     func fieldToJson(_ input: Frozen, eolIndent: String?, out: inout String) {
-      serializer._toJson(getter(input), eolIndent: eolIndent, out: &out)
+      adapter.toJson(getter(input), eolIndent: eolIndent, out: &out)
     }
 
     func fieldFromJson(_ json: Any, target: Mutable, keepUnrecognized: Bool) throws {
-      let value = try serializer._fromJson(json, keepUnrecognizedValues: keepUnrecognized)
+      let value = try adapter.fromJson(json, keepUnrecognizedValues: keepUnrecognized)
       setter(target, value)
     }
 
     func encodeField(_ input: Frozen, out: inout [UInt8]) {
-      serializer._encode(getter(input), out: &out)
+      adapter.encode(getter(input), out: &out)
     }
 
     func decodeField(_ input: inout [UInt8], target: Mutable, keepUnrecognized: Bool) throws {
-      let value = try serializer._decode(&input, keepUnrecognizedValues: keepUnrecognized)
+      let value = try adapter.decode(&input, keepUnrecognizedValues: keepUnrecognized)
       setter(target, value)
     }
   }
@@ -106,7 +106,7 @@ extension Internal {
         fieldNumber: number,
         fieldName: name,
         fieldDoc: doc,
-        serializer: serializer,
+        adapter: serializer.adapter,
         getter: getter,
         setter: setter
       )

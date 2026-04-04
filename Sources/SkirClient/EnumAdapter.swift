@@ -6,6 +6,7 @@ extension Internal {
     associatedtype T
     func number() -> Int32
     func constant() -> T?
+    func wrapperDefault() -> T
     func variantToJson(_ input: T, eolIndent: String?, out: inout String)
     func encodeValue(_ input: T, out: inout [UInt8])
     func wrapFromJson(_ json: Any, keepUnrecognized: Bool) throws -> T
@@ -20,6 +21,7 @@ extension Internal {
 
     func number() -> Int32 { variantNumber }
     func constant() -> T? { instance }
+    func wrapperDefault() -> T { preconditionFailure("constant variant has no wrapper default") }
 
     func variantToJson(_ input: T, eolIndent: String?, out: inout String) {
       if eolIndent != nil {
@@ -46,12 +48,16 @@ extension Internal {
   fileprivate struct WrapperEntry<T, V>: VariantEntry {
     let variantNumber: Int32
     let variantName: String
-    let serializer: Serializer<V>
+    let adapter: any TypeAdapter<V>
     let wrap: (V) -> T
     let getValue: (T) -> V
 
     func number() -> Int32 { variantNumber }
     func constant() -> T? { nil }
+    func wrapperDefault() -> T {
+      let inner = try! adapter.fromJson(0, keepUnrecognizedValues: false)
+      return wrap(inner)
+    }
 
     func variantToJson(_ input: T, eolIndent: String?, out: inout String) {
       let value = getValue(input)
@@ -64,14 +70,14 @@ extension Internal {
         out.append(",")
         out.append(childIndent)
         out.append("\"value\": ")
-        serializer._toJson(value, eolIndent: childIndent, out: &out)
+        adapter.toJson(value, eolIndent: childIndent, out: &out)
         out.append(indent)
         out.append("}")
       } else {
         out.append("[")
         out.append(String(variantNumber))
         out.append(",")
-        serializer._toJson(value, eolIndent: nil, out: &out)
+        adapter.toJson(value, eolIndent: nil, out: &out)
         out.append("]")
       }
     }
@@ -83,16 +89,16 @@ extension Internal {
         out.append(248)
         encodeUInt32(UInt32(bitPattern: variantNumber), out: &out)
       }
-      serializer._encode(getValue(input), out: &out)
+      adapter.encode(getValue(input), out: &out)
     }
 
     func wrapFromJson(_ json: Any, keepUnrecognized: Bool) throws -> T {
-      let inner = try serializer._fromJson(json, keepUnrecognizedValues: keepUnrecognized)
+      let inner = try adapter.fromJson(json, keepUnrecognizedValues: keepUnrecognized)
       return wrap(inner)
     }
 
     func wrapDecode(_ input: inout [UInt8], keepUnrecognized: Bool) throws -> T {
-      let inner = try serializer._decode(&input, keepUnrecognizedValues: keepUnrecognized)
+      let inner = try adapter.decode(&input, keepUnrecognizedValues: keepUnrecognized)
       return wrap(inner)
     }
   }
@@ -180,7 +186,7 @@ extension Internal {
       let entry = WrapperEntry<T, V>(
         variantNumber: number,
         variantName: name,
-        serializer: serializer,
+        adapter: serializer.adapter,
         wrap: wrap,
         getValue: getValue
       )
@@ -255,11 +261,17 @@ extension Internal {
         out.append("\"UNKNOWN\"")
         return
       }
-      if let u = getUnrecognized(input).value, u.format == .denseJson, !u.value.isEmpty {
-        out.append(String(decoding: u.value, as: UTF8.self))
-      } else {
-        out.append("0")
+      if let u = getUnrecognized(input).value {
+        if u.format == .denseJson, !u.value.isEmpty {
+          out.append(String(decoding: u.value, as: UTF8.self))
+          return
+        }
+        if u.format == .bytes, numberToEntry[u.number] != nil {
+          out.append(String(u.number))
+          return
+        }
       }
+      out.append("0")
     }
 
     public func fromJson(_ json: Any, keepUnrecognizedValues: Bool) throws -> T {
@@ -283,7 +295,7 @@ extension Internal {
             if let constant = entry.constant() {
               return constant
             } else {
-              throw SkirError("variant '\(str)' is a wrapper, not a constant")
+              return entry.wrapperDefault()
             }
           }
         }
@@ -301,8 +313,11 @@ extension Internal {
           return defaultValue
         case .removed:
           return defaultValue
-        case .constant:
-          throw SkirError("variant number \(num) is a constant, not a wrapper")
+        case .constant(let ko):
+          if ko < kindOrdinalToEntry.count, let entry = kindOrdinalToEntry[ko] {
+            return entry.constant() ?? defaultValue
+          }
+          return defaultValue
         case .wrapper(let ko):
           if ko < kindOrdinalToEntry.count, let entry = kindOrdinalToEntry[ko] {
             return try entry.wrapFromJson(arr[1], keepUnrecognized: keepUnrecognizedValues)
@@ -315,8 +330,8 @@ extension Internal {
         let valueJson = obj["value"] ?? NSNull()
         if let ko = nameToKindOrdinal[name] {
           if ko < kindOrdinalToEntry.count, let entry = kindOrdinalToEntry[ko] {
-            if entry.constant() != nil {
-              throw SkirError("variant '\(name)' is a constant, not a wrapper")
+            if let constant = entry.constant() {
+              return constant
             }
             return try entry.wrapFromJson(valueJson, keepUnrecognized: keepUnrecognizedValues)
           }
@@ -339,7 +354,10 @@ extension Internal {
         return defaultValue
       case .removed:
         return defaultValue
-      case .wrapper:
+      case .wrapper(let ko):
+        if ko < kindOrdinalToEntry.count, let entry = kindOrdinalToEntry[ko] {
+          return entry.wrapperDefault()
+        }
         return defaultValue
       case .constant(let ko):
         if ko < kindOrdinalToEntry.count, let entry = kindOrdinalToEntry[ko] {
@@ -385,7 +403,10 @@ extension Internal {
             return entry.constant() ?? defaultValue
           }
           return defaultValue
-        case .wrapper:
+        case .wrapper(let ko):
+          if ko < kindOrdinalToEntry.count, let entry = kindOrdinalToEntry[ko] {
+            return entry.wrapperDefault()
+          }
           return defaultValue
         }
       } else {
@@ -412,7 +433,11 @@ extension Internal {
         case .removed:
           try skipValue(&input)
           return defaultValue
-        case .constant:
+        case .constant(let ko):
+          try skipValue(&input)
+          if ko < kindOrdinalToEntry.count, let entry = kindOrdinalToEntry[ko] {
+            return entry.constant() ?? defaultValue
+          }
           return defaultValue
         case .wrapper(let ko):
           if ko < kindOrdinalToEntry.count, let entry = kindOrdinalToEntry[ko] {
@@ -436,6 +461,7 @@ extension Internal {
   fileprivate struct AnyVariantEntry<T> {
     private let _number: () -> Int32
     private let _constant: () -> T?
+    private let _wrapperDefault: () -> T
     private let _variantToJson: (T, String?, inout String) -> Void
     private let _encodeValue: (T, inout [UInt8]) -> Void
     private let _wrapFromJson: (Any, Bool) throws -> T
@@ -444,6 +470,7 @@ extension Internal {
     init<Entry: VariantEntry>(_ entry: Entry) where Entry.T == T {
       self._number = { entry.number() }
       self._constant = { entry.constant() }
+      self._wrapperDefault = { entry.wrapperDefault() }
       self._variantToJson = { entry.variantToJson($0, eolIndent: $1, out: &$2) }
       self._encodeValue = { entry.encodeValue($0, out: &$1) }
       self._wrapFromJson = { try entry.wrapFromJson($0, keepUnrecognized: $1) }
@@ -452,6 +479,7 @@ extension Internal {
 
     func number() -> Int32 { _number() }
     func constant() -> T? { _constant() }
+    func wrapperDefault() -> T { _wrapperDefault() }
     func variantToJson(_ input: T, eolIndent: String?, out: inout String) {
       _variantToJson(input, eolIndent, &out)
     }

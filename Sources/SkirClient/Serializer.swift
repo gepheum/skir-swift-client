@@ -7,7 +7,7 @@ import Foundation
 /// Serializes and deserializes values of type `T` in both JSON and binary
 /// formats.
 public final class Serializer<T> {
-  private let adapter: any TypeAdapter<T>
+  let adapter: any TypeAdapter<T>
 
   // MARK: - Public API
 
@@ -79,26 +79,6 @@ public final class Serializer<T> {
   /// Returns a TypeDescriptor that describes the schema of `T`.
   public var typeDescriptor: Reflection.TypeDescriptor {
     adapter.typeDescriptor()
-  }
-
-  func _isDefault(_ value: T) -> Bool {
-    adapter.isDefault(value)
-  }
-
-  func _toJson(_ value: T, eolIndent: String?, out: inout String) {
-    adapter.toJson(value, eolIndent: eolIndent, out: &out)
-  }
-
-  func _fromJson(_ json: Any, keepUnrecognizedValues: Bool) throws -> T {
-    try adapter.fromJson(json, keepUnrecognizedValues: keepUnrecognizedValues)
-  }
-
-  func _encode(_ value: T, out: inout [UInt8]) {
-    adapter.encode(value, out: &out)
-  }
-
-  func _decode(_ input: inout [UInt8], keepUnrecognizedValues: Bool) throws -> T {
-    try adapter.decode(&input, keepUnrecognizedValues: keepUnrecognizedValues)
   }
 
   // MARK: - Internal Constructors

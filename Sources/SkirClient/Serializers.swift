@@ -24,21 +24,21 @@ public enum Serializers {
     _ item: Serializer<Element>,
   ) -> Serializer<[Element]> {
     Serializer<[Element]>(
-      adapter: ArrayAdapter(item: item)
+      adapter: ArrayAdapter(item: item.adapter)
     )
   }
 
   public static func optional<Wrapped>(
     _ other: Serializer<Wrapped>
   ) -> Serializer<Wrapped?> {
-    Serializer<Wrapped?>(adapter: OptionalAdapter(other: other))
+    Serializer<Wrapped?>(adapter: OptionalAdapter(other: other.adapter))
   }
 
   public static func keyedArray<Spec: KeyedArraySpec>(
     _ item: Serializer<Spec.Item>
   ) -> Serializer<KeyedArray<Spec>> {
     Serializer<KeyedArray<Spec>>(
-      adapter: KeyedArrayAdapter<Spec>(item: item)
+      adapter: KeyedArrayAdapter<Spec>(item: item.adapter)
     )
   }
 
@@ -46,7 +46,7 @@ public enum Serializers {
     _ other: Serializer<Wrapped>
   ) -> Serializer<IndirectOptional<Wrapped>> {
     Serializer<IndirectOptional<Wrapped>>(
-      adapter: RecursiveAdapter(other: other)
+      adapter: RecursiveAdapter(other: other.adapter)
     )
   }
 
@@ -54,7 +54,7 @@ public enum Serializers {
     _ other: Serializer<Wrapped>
   ) -> Serializer<IndirectOptional<Wrapped>> {
     Serializer<IndirectOptional<Wrapped>>(
-      adapter: OptionBoxAdapter(other: other)
+      adapter: OptionBoxAdapter(other: other.adapter)
     )
   }
 }
@@ -844,7 +844,7 @@ struct BytesAdapter: TypeAdapter {
 struct ArrayAdapter<Element>: TypeAdapter {
   typealias T = [Element]
 
-  let item: Serializer<Element>
+  let item: any TypeAdapter<Element>
 
   func isDefault(_ input: [Element]) -> Bool { input.isEmpty }
 
@@ -854,7 +854,7 @@ struct ArrayAdapter<Element>: TypeAdapter {
       let childIndent = eolIndent + "  "
       for (index, value) in input.enumerated() {
         out.append(childIndent)
-        item._toJson(value, eolIndent: childIndent, out: &out)
+        item.toJson(value, eolIndent: childIndent, out: &out)
         if index + 1 < input.count {
           out.append(",")
         }
@@ -867,7 +867,7 @@ struct ArrayAdapter<Element>: TypeAdapter {
         if index > 0 {
           out.append(",")
         }
-        item._toJson(value, eolIndent: nil, out: &out)
+        item.toJson(value, eolIndent: nil, out: &out)
       }
     }
     out.append("]")
@@ -877,7 +877,9 @@ struct ArrayAdapter<Element>: TypeAdapter {
     guard let values = json as? [Any] else {
       return []
     }
-    return try values.map { try item._fromJson($0, keepUnrecognizedValues: keepUnrecognizedValues) }
+    return try values.map {
+      try item.fromJson($0, keepUnrecognizedValues: keepUnrecognizedValues)
+    }
   }
 
   func encode(_ input: [Element], out: inout [UInt8]) {
@@ -888,7 +890,7 @@ struct ArrayAdapter<Element>: TypeAdapter {
       encodeUInt32(UInt32(input.count), out: &out)
     }
     for value in input {
-      item._encode(value, out: &out)
+      item.encode(value, out: &out)
     }
   }
 
@@ -912,20 +914,20 @@ struct ArrayAdapter<Element>: TypeAdapter {
     var values: [Element] = []
     values.reserveCapacity(count)
     for _ in 0..<count {
-      values.append(try item._decode(&input, keepUnrecognizedValues: keepUnrecognizedValues))
+      values.append(try item.decode(&input, keepUnrecognizedValues: keepUnrecognizedValues))
     }
     return values
   }
 
   func typeDescriptor() -> Reflection.TypeDescriptor {
-    .array(Reflection.ArrayDescriptor(itemType: item.typeDescriptor, keyExtractor: ""))
+    .array(Reflection.ArrayDescriptor(itemType: item.typeDescriptor(), keyExtractor: ""))
   }
 }
 
 struct KeyedArrayAdapter<Spec: KeyedArraySpec>: TypeAdapter {
   typealias T = KeyedArray<Spec>
 
-  let item: Serializer<Spec.Item>
+  let item: any TypeAdapter<Spec.Item>
 
   func isDefault(_ input: KeyedArray<Spec>) -> Bool { input.isEmpty }
 
@@ -935,7 +937,7 @@ struct KeyedArrayAdapter<Spec: KeyedArraySpec>: TypeAdapter {
       let childIndent = eolIndent + "  "
       for (index, value) in input.enumerated() {
         out.append(childIndent)
-        item._toJson(value, eolIndent: childIndent, out: &out)
+        item.toJson(value, eolIndent: childIndent, out: &out)
         if index + 1 < input.count {
           out.append(",")
         }
@@ -948,7 +950,7 @@ struct KeyedArrayAdapter<Spec: KeyedArraySpec>: TypeAdapter {
         if index > 0 {
           out.append(",")
         }
-        item._toJson(value, eolIndent: nil, out: &out)
+        item.toJson(value, eolIndent: nil, out: &out)
       }
     }
     out.append("]")
@@ -959,7 +961,7 @@ struct KeyedArrayAdapter<Spec: KeyedArraySpec>: TypeAdapter {
       return KeyedArray<Spec>()
     }
     let items = try values.map {
-      try item._fromJson($0, keepUnrecognizedValues: keepUnrecognizedValues)
+      try item.fromJson($0, keepUnrecognizedValues: keepUnrecognizedValues)
     }
     return KeyedArray<Spec>(items)
   }
@@ -972,7 +974,7 @@ struct KeyedArrayAdapter<Spec: KeyedArraySpec>: TypeAdapter {
       encodeUInt32(UInt32(input.count), out: &out)
     }
     for value in input {
-      item._encode(value, out: &out)
+      item.encode(value, out: &out)
     }
   }
 
@@ -996,14 +998,14 @@ struct KeyedArrayAdapter<Spec: KeyedArraySpec>: TypeAdapter {
     var items: [Spec.Item] = []
     items.reserveCapacity(count)
     for _ in 0..<count {
-      items.append(try item._decode(&input, keepUnrecognizedValues: keepUnrecognizedValues))
+      items.append(try item.decode(&input, keepUnrecognizedValues: keepUnrecognizedValues))
     }
     return KeyedArray<Spec>(items)
   }
 
   func typeDescriptor() -> Reflection.TypeDescriptor {
     .array(
-      Reflection.ArrayDescriptor(itemType: item.typeDescriptor, keyExtractor: Spec.keyExtractor())
+      Reflection.ArrayDescriptor(itemType: item.typeDescriptor(), keyExtractor: Spec.keyExtractor())
     )
   }
 }
@@ -1011,7 +1013,7 @@ struct KeyedArrayAdapter<Spec: KeyedArraySpec>: TypeAdapter {
 struct OptionalAdapter<Wrapped>: TypeAdapter {
   typealias T = Wrapped?
 
-  let other: Serializer<Wrapped>
+  let other: any TypeAdapter<Wrapped>
 
   func isDefault(_ input: Wrapped?) -> Bool { input == nil }
 
@@ -1020,14 +1022,14 @@ struct OptionalAdapter<Wrapped>: TypeAdapter {
       out.append("null")
       return
     }
-    other._toJson(input, eolIndent: eolIndent, out: &out)
+    other.toJson(input, eolIndent: eolIndent, out: &out)
   }
 
   func fromJson(_ json: Any, keepUnrecognizedValues: Bool) throws -> Wrapped? {
     if json is NSNull {
       return nil
     }
-    return try other._fromJson(json, keepUnrecognizedValues: keepUnrecognizedValues)
+    return try other.fromJson(json, keepUnrecognizedValues: keepUnrecognizedValues)
   }
 
   func encode(_ input: Wrapped?, out: inout [UInt8]) {
@@ -1035,7 +1037,7 @@ struct OptionalAdapter<Wrapped>: TypeAdapter {
       out.append(255)
       return
     }
-    other._encode(input, out: &out)
+    other.encode(input, out: &out)
   }
 
   func decode(_ input: inout [UInt8], keepUnrecognizedValues: Bool) throws -> Wrapped? {
@@ -1043,24 +1045,24 @@ struct OptionalAdapter<Wrapped>: TypeAdapter {
       input.removeFirst()
       return nil
     }
-    return try other._decode(&input, keepUnrecognizedValues: keepUnrecognizedValues)
+    return try other.decode(&input, keepUnrecognizedValues: keepUnrecognizedValues)
   }
 
   func typeDescriptor() -> Reflection.TypeDescriptor {
-    .optional(other.typeDescriptor)
+    .optional(other.typeDescriptor())
   }
 }
 
 struct RecursiveAdapter<Wrapped>: TypeAdapter {
   typealias T = IndirectOptional<Wrapped>
 
-  let other: Serializer<Wrapped>
+  let other: any TypeAdapter<Wrapped>
 
   func isDefault(_ input: IndirectOptional<Wrapped>) -> Bool {
     guard let inner = input.value else {
       return true
     }
-    return other._isDefault(inner)
+    return other.isDefault(inner)
   }
 
   func toJson(_ input: IndirectOptional<Wrapped>, eolIndent: String?, out: inout String) {
@@ -1068,7 +1070,7 @@ struct RecursiveAdapter<Wrapped>: TypeAdapter {
       out.append("[]")
       return
     }
-    other._toJson(inner, eolIndent: eolIndent, out: &out)
+    other.toJson(inner, eolIndent: eolIndent, out: &out)
   }
 
   func fromJson(_ json: Any, keepUnrecognizedValues: Bool) throws -> IndirectOptional<Wrapped> {
@@ -1078,7 +1080,7 @@ struct RecursiveAdapter<Wrapped>: TypeAdapter {
     if let number = jsonNumber(json), number.doubleValue == 0 {
       return .none
     }
-    return .some(try other._fromJson(json, keepUnrecognizedValues: keepUnrecognizedValues))
+    return .some(try other.fromJson(json, keepUnrecognizedValues: keepUnrecognizedValues))
   }
 
   func encode(_ input: IndirectOptional<Wrapped>, out: inout [UInt8]) {
@@ -1086,7 +1088,7 @@ struct RecursiveAdapter<Wrapped>: TypeAdapter {
       out.append(246)
       return
     }
-    other._encode(inner, out: &out)
+    other.encode(inner, out: &out)
   }
 
   func decode(_ input: inout [UInt8], keepUnrecognizedValues: Bool) throws -> IndirectOptional<
@@ -1096,18 +1098,18 @@ struct RecursiveAdapter<Wrapped>: TypeAdapter {
       input.removeFirst()
       return .none
     }
-    return .some(try other._decode(&input, keepUnrecognizedValues: keepUnrecognizedValues))
+    return .some(try other.decode(&input, keepUnrecognizedValues: keepUnrecognizedValues))
   }
 
   func typeDescriptor() -> Reflection.TypeDescriptor {
-    other.typeDescriptor
+    other.typeDescriptor()
   }
 }
 
 struct OptionBoxAdapter<Wrapped>: TypeAdapter {
   typealias T = IndirectOptional<Wrapped>
 
-  let other: Serializer<Wrapped>
+  let other: any TypeAdapter<Wrapped>
 
   func isDefault(_ input: IndirectOptional<Wrapped>) -> Bool {
     if case .none = input { return true }
@@ -1119,14 +1121,14 @@ struct OptionBoxAdapter<Wrapped>: TypeAdapter {
       out.append("null")
       return
     }
-    other._toJson(inner, eolIndent: eolIndent, out: &out)
+    other.toJson(inner, eolIndent: eolIndent, out: &out)
   }
 
   func fromJson(_ json: Any, keepUnrecognizedValues: Bool) throws -> IndirectOptional<Wrapped> {
     if json is NSNull {
       return .none
     }
-    return .some(try other._fromJson(json, keepUnrecognizedValues: keepUnrecognizedValues))
+    return .some(try other.fromJson(json, keepUnrecognizedValues: keepUnrecognizedValues))
   }
 
   func encode(_ input: IndirectOptional<Wrapped>, out: inout [UInt8]) {
@@ -1134,7 +1136,7 @@ struct OptionBoxAdapter<Wrapped>: TypeAdapter {
       out.append(255)
       return
     }
-    other._encode(inner, out: &out)
+    other.encode(inner, out: &out)
   }
 
   func decode(_ input: inout [UInt8], keepUnrecognizedValues: Bool) throws -> IndirectOptional<
@@ -1144,10 +1146,10 @@ struct OptionBoxAdapter<Wrapped>: TypeAdapter {
       input.removeFirst()
       return .none
     }
-    return .some(try other._decode(&input, keepUnrecognizedValues: keepUnrecognizedValues))
+    return .some(try other.decode(&input, keepUnrecognizedValues: keepUnrecognizedValues))
   }
 
   func typeDescriptor() -> Reflection.TypeDescriptor {
-    .optional(other.typeDescriptor)
+    .optional(other.typeDescriptor())
   }
 }
