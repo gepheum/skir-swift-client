@@ -221,6 +221,8 @@ extension Internal {
     public func finalize() {
       lock.lock()
       defer { lock.unlock() }
+      nameToKindOrdinal["UNKNOWN"] = 0
+      nameToKindOrdinal["unknown"] = 0
       descVariants.sort { $0.number < $1.number }
       desc.setVariants(descVariants)
       desc.setRemovedNumbers(removedNumbers)

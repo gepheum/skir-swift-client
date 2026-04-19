@@ -245,4 +245,10 @@ final class EnumNameCaseCompatibilityTests: XCTestCase {
     XCTAssertEqual(try s.fromJson("\"RED\""), try s.fromJson("\"red\""))
     XCTAssertEqual(try s.fromJson("\"RED\""), TestColor.red)
   }
+
+  func testUnknownUpperAndLowerYieldSameResult() throws {
+    let s = TestColor.serializer
+    XCTAssertEqual(try s.fromJson("\"UNKNOWN\""), try s.fromJson("\"unknown\""))
+    XCTAssertEqual(try s.fromJson("\"unknown\""), TestColor.unknownValue)
+  }
 }
