@@ -159,6 +159,14 @@ extension Internal {
       defer { lock.unlock() }
       numberToEntry[number] = .constant(kindOrdinal)
       nameToKindOrdinal[name] = kindOrdinal
+      do {
+        let nameUpper = name.uppercased()
+        if nameUpper != name { nameToKindOrdinal[nameUpper] = kindOrdinal }
+      }
+      do {
+        let nameLower = name.lowercased()
+        if nameLower != name { nameToKindOrdinal[nameLower] = kindOrdinal }
+      }
       let entry = ConstantEntry<T>(
         variantNumber: number,
         variantName: name,

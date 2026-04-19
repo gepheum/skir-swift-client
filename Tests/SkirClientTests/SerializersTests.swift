@@ -163,3 +163,86 @@ final class SerializersTests: XCTestCase {
     XCTAssertNil(try s.fromBytes(s.toBytes(nil)))
   }
 }
+
+// MARK: - Enum name case-compatibility tests
+
+private enum TestColor: Swift.Equatable {
+  case unknown(unrecognized: SkirClient.UnrecognizedVariant<TestColor>)
+  case red
+  case green
+  case blue
+
+  static let unknownValue = unknown(unrecognized: nil)
+
+  static func == (lhs: TestColor, rhs: TestColor) -> Bool {
+    switch (lhs, rhs) {
+    case (.unknown, .unknown): return true
+    case (.red, .red): return true
+    case (.green, .green): return true
+    case (.blue, .blue): return true
+    default: return false
+    }
+  }
+
+  static let _typeAdapter = SkirClient.Internal.EnumAdapter<TestColor>(
+    modulePath: "test.skir",
+    qualifiedName: "TestColor",
+    doc: "",
+    defaultValue: unknownValue,
+    getKindOrdinal: { input in
+      switch input {
+      case .unknown: return 0
+      case .red: return 1
+      case .green: return 2
+      case .blue: return 3
+      }
+    },
+    wrapUnrecognized: { unrecognized in .unknown(unrecognized: .some(unrecognized)) },
+    getUnrecognized: { input in
+      switch input {
+      case .unknown(let u): return u
+      default: return nil
+      }
+    }
+  )
+
+  static let serializer: SkirClient.Serializer<TestColor> = {
+    _typeAdapter.addConstantVariant(name: "red", number: 1, kindOrdinal: 1, doc: "", instance: .red)
+    _typeAdapter.addConstantVariant(
+      name: "green", number: 2, kindOrdinal: 2, doc: "", instance: .green)
+    _typeAdapter.addConstantVariant(
+      name: "blue", number: 3, kindOrdinal: 3, doc: "", instance: .blue)
+    _typeAdapter.finalize()
+    return SkirClient.Serializer(adapter: _typeAdapter)
+  }()
+}
+
+final class EnumNameCaseCompatibilityTests: XCTestCase {
+
+  // MARK: - Condition 1: serialise using the registered (lower_case) name
+
+  func testSerialisesLowercaseConstantToLowerCaseReadableJson() throws {
+    let s = TestColor.serializer
+    // toJson returns raw JSON code; for a string enum variant that is "\"red\""
+    XCTAssertEqual(s.toJson(.red, readable: true), "\"red\"")
+    XCTAssertEqual(s.toJson(.green, readable: true), "\"green\"")
+  }
+
+  // MARK: - Condition 2: parse both UPPER_CASE and lower_case names
+
+  func testParsesUpperCaseConstantName() throws {
+    let s = TestColor.serializer
+    XCTAssertEqual(try s.fromJson("\"RED\""), TestColor.red)
+  }
+
+  func testParsesLowerCaseConstantName() throws {
+    let s = TestColor.serializer
+    XCTAssertEqual(try s.fromJson("\"green\""), TestColor.green)
+  }
+
+  func testUpperCaseAndLowerCaseConstantNamesYieldSameResult() throws {
+    let s = TestColor.serializer
+    XCTAssertEqual(try s.fromJson("\"RED\""), try s.fromJson("\"red\""))
+    XCTAssertEqual(try s.fromJson("\"RED\""), TestColor.red)
+  }
+}
