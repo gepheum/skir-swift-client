@@ -259,7 +259,7 @@ extension Internal {
         entry.variantToJson(input, eolIndent: eolIndent, out: &out)
       } else {
         if eolIndent != nil {
-          out.append("\"UNKNOWN\"")
+          out.append("\"unknown\"")
         } else {
           out.append("0")
         }
@@ -268,7 +268,7 @@ extension Internal {
 
     private func unknownToJson(_ input: T, eolIndent: String?, out: inout String) {
       if eolIndent != nil {
-        out.append("\"UNKNOWN\"")
+        out.append("\"unknown\"")
         return
       }
       if let u = getUnrecognized(input).value {
