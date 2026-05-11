@@ -112,6 +112,12 @@ final class SerializersTests: XCTestCase {
     XCTAssertEqual(try s.fromBytes(s.toBytes("hello")), "hello")
   }
 
+  func testStringBinaryDecodeReplacesMalformedUtf8() throws {
+    let s = Serializers.string
+    let bytes: [UInt8] = [0x73, 0x6B, 0x69, 0x72, 0xF3, 0x02, 0xFF, 0x7A]
+    XCTAssertEqual(try s.fromBytes(bytes), "�z")
+  }
+
   // MARK: - Bytes (Data)
 
   func testBytesJsonRoundTrip() throws {
